@@ -57,14 +57,14 @@ class QueryProcessor:
                 )
                 return intent_response
 
-            # Step 2: Analyze query and determine what data is needed
-            query_analysis = self._analyze_query(request.query)
+            # Step 2: Determine what data types are needed using LLM
+            data_types = llm_service.classify_data_intent(request.query)
 
             # Step 3: Retrieve relevant knowledge base content
             kb_context = self._get_knowledge_base_context(request.query)
 
             # Step 4: Retrieve relevant dynamic data
-            dynamic_data = self._get_dynamic_data(query_analysis)
+            dynamic_data = self._get_dynamic_data(data_types)
 
             # Step 5: Generate response using LLM
             response = llm_service.process_query(
@@ -169,17 +169,17 @@ class QueryProcessor:
             logger.error(f"Error retrieving knowledge base context: {e}")
             return None
 
-    def _get_dynamic_data(self, analysis: Dict[str, Any]) -> Dict[str, Any]:
-        """Retrieve relevant dynamic data based on query analysis."""
+    def _get_dynamic_data(self, data_types: Dict[str, Any]) -> Dict[str, Any]:
+        """Retrieve relevant dynamic data based on LLM classification."""
         dynamic_data = {}
 
-        if analysis["needs_employees"]:
+        if data_types.get("employees", False):
             dynamic_data["employees"] = data_service.get_employees()
 
-        if analysis["needs_jira"]:
+        if data_types.get("jira", False):
             dynamic_data["jira_tickets"] = data_service.get_open_tickets()
 
-        if analysis["needs_deployments"]:
+        if data_types.get("deployments", False):
             dynamic_data["deployments"] = data_service.get_recent_deployments()
 
         return dynamic_data

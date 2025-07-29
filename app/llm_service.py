@@ -10,8 +10,12 @@ import re
 from typing import Dict, Any, Optional, List, Tuple
 from loguru import logger
 from openai import OpenAI
+from dotenv import load_dotenv
 
 from model import QueryResponse
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 class LLMService:
@@ -179,6 +183,62 @@ class LLMService:
             logger.error(f"Error checking intent with LLM: {e}")
             # Default to True if LLM check fails
             return True
+
+    def classify_data_intent(self, query: str) -> Dict[str, bool]:
+        """
+        Classify which data types are needed using LLM only.
+        Returns simple dict with boolean flags for each data type.
+        """
+        try:
+            if not self.client.api_key:
+                # If no API key, return empty classification (no data)
+                return {"employees": False, "jira": False, "deployments": False}
+            
+            prompt = f"""
+            Analyze this query and respond with ONLY a JSON object:
+            Query: "{query}"
+            
+            {{
+                "employees": true/false,
+                "jira": true/false,
+                "deployments": true/false
+            }}
+            
+            Rules:
+            - employees: true if asking about people, team, staff, who is, contact info
+            - jira: true if asking about tickets, issues, bugs, tasks, Jira items
+            - deployments: true if asking about deployments, releases, versions, services
+            """
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are a data classifier. Respond only with valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=50,
+                temperature=0.1
+            )
+            
+            result = response.choices[0].message.content.strip()
+            try:
+                import json
+                classification = json.loads(result)
+                # Ensure all required fields are present
+                return {
+                    "employees": classification.get("employees", False),
+                    "jira": classification.get("jira", False),
+                    "deployments": classification.get("deployments", False)
+                }
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse LLM classification: {result}")
+                # Return empty classification if LLM fails
+                return {"employees": False, "jira": False, "deployments": False}
+                
+        except Exception as e:
+            logger.error(f"Error in LLM classification: {e}")
+            # Return empty classification if LLM fails
+            return {"employees": False, "jira": False, "deployments": False}
 
     def _extract_sources(
         self,
