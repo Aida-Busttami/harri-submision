@@ -9,13 +9,12 @@ from typing import List, Dict, Any, Optional
 from pathlib import Path
 import chromadb
 from loguru import logger
-import openai
-api_key = os.getenv("API_KEY")
 from chromadb.config import Settings
+from sentence_transformers import SentenceTransformer
+
 # Get the directory of the current Python file
 current_file_dir = os.path.dirname(os.path.abspath(__file__))
-openai.api_key = api_key
-from sentence_transformers import SentenceTransformer
+
 # Specify the target directory name that is in the same directory as the current file
 target_dir_name = "kb"
 
@@ -41,10 +40,10 @@ class KnowledgeBase:
         """Initialize ChromaDB client and embedding model."""
         try:
             self.chroma_client = chromadb.PersistentClient(
-                path="",
+                path="./chroma_db",
                 settings=Settings()
             )
-            self.embedding_model = SentenceTransformer()
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
             self.collection = self.chroma_client.get_or_create_collection(
                 name="harri_knowledge_base",
                 metadata={"description": "Harri internal documentation and knowledge base"}
@@ -98,10 +97,11 @@ class KnowledgeBase:
                 section = re.sub(r'\n\s*\n\s*\n', '\n\n', section.strip())
                 chunks.append(section)
 
-        if len(chunks) <= 1:
-            # split into paragraphs
-            paragraphs = content.split('\n\n')
+        # If no sections found, split by paragraphs
+        if not chunks:
+            paragraphs = re.split(r'\n\s*\n', content)
             chunks = [p.strip() for p in paragraphs if p.strip()]
+
         return chunks
 
     def _index_documents(self) -> None:
@@ -111,29 +111,33 @@ class KnowledgeBase:
                 logger.warning("No documents to index")
                 return
 
+            # Prepare documents for indexing
             ids = [doc["id"] for doc in self.documents]
             texts = [doc["content"] for doc in self.documents]
-            metadatas = [
-                {
-                    "title": doc["title"],
-                    "filename": doc["filename"],
-                    "source": doc["source"]
-                }
-                for doc in self.documents
-            ]
+            metadatas = [{"filename": doc["filename"], "title": doc["title"]} for doc in self.documents]
 
+            # Add documents to collection
             self.collection.add(
                 documents=texts,
                 metadatas=metadatas,
                 ids=ids
             )
-            logger.info(f"Indexed {len(self.documents)} document chunks")
+            logger.info(f"Indexed {len(self.documents)} documents in vector database")
         except Exception as e:
             logger.error(f"Error indexing documents: {e}")
             raise
 
     def search(self, query: str, top_k: int = 5) -> List[Dict[str, Any]]:
-        """Search the knowledge base for relevant documents."""
+        """
+        Search for relevant documents using vector similarity.
+
+        Args:
+            query: Search query
+            top_k: Number of top results to return
+
+        Returns:
+            List of relevant documents with metadata
+        """
         try:
             if not self.collection:
                 logger.warning("Vector database not initialized")
@@ -144,6 +148,7 @@ class KnowledgeBase:
                 n_results=top_k
             )
 
+            # Format results
             formatted_results = []
             if results['documents'] and results['documents'][0]:
                 for i, doc in enumerate(results['documents'][0]):
@@ -157,6 +162,7 @@ class KnowledgeBase:
         except Exception as e:
             logger.error(f"Error searching knowledge base: {e}")
             return []
+
 
 # Global knowledge base instance
 knowledge_base = KnowledgeBase()

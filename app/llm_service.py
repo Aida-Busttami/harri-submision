@@ -1,13 +1,15 @@
 """
 LLM service module for Harri AI Assistant.
-Handles OpenAI API interactions and query processing with context-aware responses.
+Handles interactions with OpenAI API for generating responses.
 """
 
+import os
+import json
 import time
 import re
-from typing import List, Dict, Any, Optional, Tuple
-from openai import OpenAI
+from typing import Dict, Any, Optional, List, Tuple
 from loguru import logger
+from openai import OpenAI
 
 from model import QueryResponse
 
@@ -17,9 +19,10 @@ class LLMService:
 
     def __init__(self):
         """Initialize the LLM service with OpenAI client."""
-        self.client = OpenAI(api_key="")
-        self.model = ""
-        self.max_tokens = 251
+        api_key = os.getenv("OPENAI_API_KEY")
+        self.client = OpenAI(api_key=api_key or "")
+        self.model = "gpt-3.5-turbo"
+        self.max_tokens = 1000
 
     def process_query(
         self,
@@ -50,6 +53,7 @@ class LLMService:
             return QueryResponse(
                 answer=response,
                 sources=sources,
+                confidence=0.8,  # Default confidence
                 query_type=query_type
             )
         except Exception as e:
@@ -100,27 +104,21 @@ class LLMService:
             if "deployments" in dynamic_data:
                 context_parts.append(f"Deployment information:\n{dynamic_data['deployments']}")
 
-        out_of_scope_keywords = [
-            "reset password", "github password", "change password", "reset my",
-        ]
-        if any(keyword in query.lower() for keyword in out_of_scope_keywords):
-            query_type = "out_of_scope"
-            system_prompt += (
-                "\n\nIMPORTANT: If the user asks about personal account management, password resets, "
-                "or other IT support issues, politely explain that these are outside your scope and direct them to the appropriate support channels."
-            )
+        user_prompt = f"User query: {query}\n\n"
+        if context_parts:
+            user_prompt += "Available information:\n" + "\n\n".join(context_parts) + "\n\n"
+        user_prompt += "Please provide a helpful response based on the available information."
 
-        context_text = "\n\n".join(context_parts) if context_parts else ""
-        prompt = (
-            f"{system_prompt}\n\n{context_text}\n\nUser Query: {query}\n\n"
-            "Please provide a helpful, accurate response based on the available information. Always cite your sources."
-        )
+        full_prompt = f"{system_prompt}\n\n{user_prompt}"
 
-        return query_type, prompt
+        return query_type, full_prompt
 
     def _generate_response(self, prompt: str) -> str:
-        """Generate a response from the LLM."""
+        """Generate a response using the OpenAI API."""
         try:
+            if not self.client.api_key:
+                return "I'm currently in demo mode and don't have access to the OpenAI API. Please set the OPENAI_API_KEY environment variable to enable full functionality."
+            
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=[
@@ -130,10 +128,10 @@ class LLMService:
                 max_tokens=self.max_tokens,
                 temperature=0.7
             )
-            return response.choices[0].message.content.strip()
+            return response.choices[0].message.content
         except Exception as e:
-            logger.error(f"Error generating LLM response: {e}")
-            return "I apologize, but I'm unable to generate a response at the moment. Please try again later."
+            logger.error(f"Error generating response: {e}")
+            return "I apologize, but I encountered an error generating a response. Please try again."
 
     def _extract_sources(
         self,
@@ -142,11 +140,12 @@ class LLMService:
     ) -> List[str]:
         """Extract source information from context and dynamic data."""
         sources = []
-
+        
         if context:
-            filename_matches = re.findall(r'\[Source: ([^\]]+)\]', context)
-            sources.extend(filename_matches)
-
+            # Extract source filenames from context
+            source_matches = re.findall(r"\[Source: ([^\]]+)\]", context)
+            sources.extend(source_matches)
+        
         if dynamic_data:
             if "employees" in dynamic_data:
                 sources.append("employees.json")
@@ -154,10 +153,8 @@ class LLMService:
                 sources.append("jira_tickets.json")
             if "deployments" in dynamic_data:
                 sources.append("deployments.json")
-
+        
         return list(set(sources))  # Remove duplicates
-
-
 
 
 # Global LLM service instance

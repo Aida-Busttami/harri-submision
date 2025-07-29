@@ -5,13 +5,15 @@ Simple FastAPI for Harri AI Assistant.
 CAUTION: External Email
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
 
-from app.models import QueryRequest, QueryResponse
-from app.query_processor import query_processor
-from app.data_service import data_service
-from app.config import config
+from model import QueryRequest, QueryResponse
+from query_processor import query_processor
+from data_service import data_service
+from auth_service import register_user, login_user, get_db
+from pydantic import BaseModel
 
 app = FastAPI(title="Harri AI Assistant")
 
@@ -38,20 +40,27 @@ async def process_query(request: QueryRequest):
 
 @app.get("/employees")
 async def get_employees():
-    """Get all employees."""
-    return data_service.employees
+    """Get all employees from database."""
+    return data_service.get_employees()
 
 @app.get("/tickets")
 async def get_tickets():
-    """Get all tickets."""
-    return data_service.jira_tickets
+    """Get all tickets from database."""
+    return data_service.get_jira_tickets()
 
 @app.get("/deployments")
 async def get_deployments():
-    """Get all deployments."""
-    return data_service.deployments
+    """Get all deployments from database."""
+    return data_service.get_deployments()
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("app.api:app", host=config.API_HOST, port=config.API_PORT, reload=True)
+class AuthRequest(BaseModel):
+    username: str
+    password: str
 
+@app.post("/register")
+async def register(auth: AuthRequest, db: Session = Depends(get_db)):
+    return register_user(auth.username, auth.password, db)
+
+@app.post("/login")
+async def login(auth: AuthRequest, db: Session = Depends(get_db)):
+    return login_user(auth.username, auth.password, db)

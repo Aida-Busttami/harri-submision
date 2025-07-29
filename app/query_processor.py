@@ -10,10 +10,11 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 from loguru import logger
 
-from app.models import QueryRequest, QueryResponse, LogEntry
-from app.knowledge_base import knowledge_base
-from app.data_service import data_service
-from app.llm_service import llm_service
+from model import QueryRequest, QueryResponse, LogEntry, LogEntryTable
+from knowledge_base import knowledge_base
+from data_service import data_service
+from llm_service import llm_service
+from database import SessionLocal
 
 
 class QueryProcessor:
@@ -21,7 +22,7 @@ class QueryProcessor:
 
     def __init__(self):
         """Initialize the query processor."""
-        self.logs: List[LogEntry] = []
+        pass
 
     def process_query(self, request: QueryRequest) -> QueryResponse:
         """
@@ -29,7 +30,7 @@ class QueryProcessor:
         Args:
             request: QueryRequest containing the user's query
         Returns:
-            QueryResponse with the AI-generated answer
+            QueryResponse with the AI-generated answerx
         """
         start_time = time.time()
         query_id = str(uuid.uuid4())
@@ -100,28 +101,27 @@ class QueryProcessor:
             "service_name": None
         }
 
-        employee_keywords = ["employee", "team member", "who is", "contact", "email", "on-call", "on call"]
+        # Check for employee-related queries
+        employee_keywords = ["employee", "team member", "staff", "who is", "contact"]
         if any(keyword in query_lower for keyword in employee_keywords):
             analysis["needs_employees"] = True
 
-        # Extract Jira assignee
-        assignee_match = re.search(r"my\s+(tickets|issues)", query_lower)
-        if assignee_match:
-            analysis["jira_assignee"] = "current_user"
-        else:
-            for emp in data_service.employees:
-                if emp.name.lower() in query_lower or emp.jira_username.lower() in query_lower:
-                    analysis["jira_assignee"] = emp.jira_username
-                    break
-
-        jira_keywords = ["jira", "ticket", "issue", "bug", "task", "open tickets", "assigned"]
+        # Check for Jira ticket queries
+        jira_keywords = ["ticket", "issue", "bug", "task", "jira"]
         if any(keyword in query_lower for keyword in jira_keywords):
             analysis["needs_jira"] = True
 
-        deployment_keywords = ["deployment", "deploy", "version", "release", "service"]
+        # Check for deployment queries
+        deployment_keywords = ["deployment", "deploy", "release", "version"]
         if any(keyword in query_lower for keyword in deployment_keywords):
             analysis["needs_deployments"] = True
 
+        # Extract Jira assignee from query
+        assignee_match = re.search(r"assigned to (\w+)", query_lower)
+        if assignee_match:
+            analysis["jira_assignee"] = assignee_match.group(1)
+
+        # Extract service name from query
         services = ["payments", "onboarding", "frontend", "backend"]
         for service in services:
             if service in query_lower:
@@ -165,7 +165,6 @@ class QueryProcessor:
 
         return dynamic_data
 
-
     def _log_interaction(
         self,
         query_id: str,
@@ -174,65 +173,86 @@ class QueryProcessor:
         processing_time: float,
         user_id: Optional[str] = None
     ) -> None:
-        """Log the interaction for observability."""
+        """Log the interaction to the database."""
         try:
-            log_entry = LogEntry(
+            db = SessionLocal()
+            log_entry = LogEntryTable(
                 timestamp=datetime.now(),
                 query=query,
                 response=response.answer,
-                sources=response.sources,
+                sources=",".join(response.sources) if response.sources else "",
                 query_type=response.query_type,
                 processing_time=processing_time,
                 user_id=user_id
             )
-            self.logs.append(log_entry)
-            if len(self.logs) > 1000:
-                self.logs = self.logs[-1000:]
+            db.add(log_entry)
+            db.commit()
+            db.close()
         except Exception as e:
-            logger.error(f"Error logging interaction: {e}")
+            logger.error(f"Error logging interaction to database: {e}")
 
-    def add_feedback(self, query_id: str, helpful: bool, feedback_text: Optional[str] = None) -> bool:
-        """Add user feedback to a logged interaction."""
+    def add_feedback(self, query_id: str, helpful: bool, feedback_text: str = "") -> bool:
+        """Add feedback for a query by updating existing entry."""
         try:
-            for log_entry in self.logs:
-                log_entry.feedback = {
+            db = SessionLocal()
+            # Find the log entry by query content (since we don't store query_id)
+            log_entry = db.query(LogEntryTable).filter(
+                LogEntryTable.query.like(f"%{query_id}%")
+            ).first()
+            
+            if log_entry:
+                feedback_data = {
                     "helpful": helpful,
                     "feedback_text": feedback_text,
                     "timestamp": datetime.now().isoformat()
                 }
+                log_entry.feedback = str(feedback_data)
+                db.commit()
+                db.close()
                 return True
-            return False
+            else:
+                db.close()
+                return False
         except Exception as e:
             logger.error(f"Error adding feedback: {e}")
             return False
 
     def get_logs(self, limit: int = 100) -> List[LogEntry]:
-        """Get recent interaction logs."""
-        return self.logs[-limit:] if self.logs else []
-
-    def get_logs_summary(self) -> Dict[str, Any]:
-        """Get a summary of interaction logs."""
-        if not self.logs:
-            return {"total_logs": 0}
-
-        total_logs = len(self.logs)
-        query_types = {}
-        total_time = 0.0
-
-        for log in self.logs:
-            query_types[log.query_type] = query_types.get(log.query_type, 0) + 1
-            total_time += log.processing_time
-
-        avg_time = total_time / total_logs
-        recent_activity = len([log for log in self.logs if (datetime.now() - log.timestamp).seconds < 3600])
-
-        return {
-            "total_logs": total_logs,
-            "query_types": query_types,
-            "avg_processing_time": avg_time,
-            "recent_activity": recent_activity
-        }
-
+        """Get recent interaction logs from database."""
+        try:
+            db = SessionLocal()
+            log_entries = db.query(LogEntryTable).order_by(
+                LogEntryTable.timestamp.desc()
+            ).limit(limit).all()
+            
+            logs = []
+            for entry in log_entries:
+                sources = entry.sources.split(",") if entry.sources else []
+                feedback = None
+                if entry.feedback:
+                    try:
+                        import ast
+                        feedback = ast.literal_eval(entry.feedback)
+                    except:
+                        feedback = {"text": entry.feedback}
+                
+                log_entry = LogEntry(
+                    timestamp=entry.timestamp,
+                    query=entry.query,
+                    response=entry.response,
+                    sources=sources,
+                    query_type=entry.query_type,
+                    processing_time=entry.processing_time,
+                    user_id=entry.user_id,
+                    feedback=feedback
+                )
+                logs.append(log_entry)
+            
+            db.close()
+            return logs
+        except Exception as e:
+            logger.error(f"Error retrieving logs from database: {e}")
+            return []
 
 # Global query processor instance
 query_processor = QueryProcessor()

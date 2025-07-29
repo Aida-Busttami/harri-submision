@@ -1,56 +1,96 @@
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
 from datetime import datetime
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, Field, EmailStr, ConfigDict
+from sqlalchemy import Column, String, Integer, DateTime, Text, Float
+from sqlalchemy.ext.declarative import declarative_base
+
+Base = declarative_base()
+
+class UserTable(Base):
+    __tablename__ = "users"
+    username = Column(String, primary_key=True, index=True)
+    password_hash = Column(String, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+class DeploymentTable(Base):
+    __tablename__ = "deployments"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    service = Column(String, nullable=False)
+    version = Column(String, nullable=False)
+    date = Column(DateTime, default=datetime.utcnow)
+    status = Column(String, nullable=False)
+
+class EmployeeTable(Base):
+    __tablename__ = "employees"
+    id = Column(Integer, primary_key=True)
+    name = Column(String, nullable=False)
+    email = Column(String, nullable=False)
+    role = Column(String)
+    team = Column(String)
+    jira_username = Column(String)
+
+class JiraTicketTable(Base):
+    __tablename__ = "jira_tickets"
+    id = Column(String, primary_key=True)
+    summary = Column(Text, nullable=False)
+    assignee = Column(String)
+    status = Column(String)
+    priority = Column(String)
+
+class LogEntryTable(Base):
+    __tablename__ = "logs"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    query = Column(Text, nullable=False)
+    response = Column(Text, nullable=False)
+    sources = Column(Text)
+    query_type = Column(String)
+    processing_time = Column(Float)
+    user_id = Column(String, nullable=True)
+    feedback = Column(Text, nullable=True)
+
 class Deployment(BaseModel):
     service: str
     version: str
     date: datetime
     status: str
+    model_config = ConfigDict(from_attributes=True)
 
-class User(BaseModel):
+class Employee(BaseModel):
     id: int
     name: str
     email: EmailStr
     role: str
     team: str
     jira_username: str
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        orm_mode = True
-class Task(BaseModel):
+class JiraTicket(BaseModel):
     id: str
     summary: str
     assignee: str
     status: str
     priority: str
-    
+    model_config = ConfigDict(from_attributes=True)
 
 class QueryRequest(BaseModel):
-    """Request model for user queries to the AI assistant."""
     query: str = Field(..., description="User's natural language query")
     user_id: Optional[str] = Field(None, description="Optional user identifier for personalization")
 
 class QueryResponse(BaseModel):
-    """Response model for AI assistant answers."""
     answer: str = Field(..., description="AI-generated answer to the user query")
-    sources: List[str] = Field(default_factory=list, description="List of sources used to generate the answer")
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score for the answer (0.0 to 1.0)")
-    query_type: str = Field(..., description="Type of query (static_knowledge, dynamic_data, out_of_scope)")
+    sources: List[str] = Field(default_factory=list)
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    query_type: str = Field(...)
 
-    
-class FeedbackRequest(BaseModel):
-    """Request model for user feedback on AI responses."""
-    query_id: str = Field(..., description="Unique identifier for the query")
-    helpful: bool = Field(..., description="Whether the response was helpful")
-    feedback_text: Optional[str] = Field(None, description="Optional detailed feedback")
 class LogEntry(BaseModel):
-    """Model for logging user interactions and system actions."""
-    timestamp: datetime = Field(..., description="Timestamp of the interaction")
-    query: str = Field(..., description="User query")
-    response: str = Field(..., description="AI response")
-    sources: List[str] = Field(default_factory=list, description="Sources used for answer generation")
-    query_type: str = Field(..., description="Detected type of query")
-    processing_time: float = Field(..., description="Time taken to generate the response in seconds")
-    user_id: Optional[str] = Field(None, description="Optional ID of the user")
-    feedback: Optional[Dict[str, Any]] = Field(None, description="Optional feedback data")
+    timestamp: datetime
+    query: str
+    response: str
+    sources: List[str] = Field(default_factory=list)
+    query_type: str
+    processing_time: float
+    user_id: Optional[str] = None
+    feedback: Optional[Dict[str, Any]] = None
+    model_config = ConfigDict(from_attributes=True)
+
