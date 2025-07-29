@@ -133,6 +133,53 @@ class LLMService:
             logger.error(f"Error generating response: {e}")
             return "I apologize, but I encountered an error generating a response. Please try again."
 
+    def check_query_intent(self, query: str) -> bool:
+        """
+        Check if the query intent suits our app using LLM.
+        Uses LLM to determine if the query is relevant to Harri's AI Assistant.
+        
+        Returns:
+            True if query suits our app, False otherwise
+        """
+        try:
+            if not self.client.api_key:
+                # If no API key, default to True (allow all queries)
+                return True
+            
+            intent_prompt = f"""
+            You are an intent classifier for Harri's AI Assistant.
+            
+            Harri's AI Assistant can help with:
+            - Team information and employee details
+            - Jira tickets and project issues  
+            - Deployment information
+            - Internal documentation and policies
+            - Development environment setup
+            - Code review processes
+            
+            Query: "{query}"
+            
+            Respond with ONLY "YES" if the query suits our app, or "NO" if it doesn't.
+            """
+            
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": "You are an intent classifier. Respond only with YES or NO."},
+                    {"role": "user", "content": intent_prompt}
+                ],
+                max_tokens=10,
+                temperature=0.1
+            )
+            
+            result = response.choices[0].message.content.strip().lower()
+            return "yes" in result
+            
+        except Exception as e:
+            logger.error(f"Error checking intent with LLM: {e}")
+            # Default to True if LLM check fails
+            return True
+
     def _extract_sources(
         self,
         context: Optional[str] = None,

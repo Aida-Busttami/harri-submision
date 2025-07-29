@@ -38,23 +38,42 @@ class QueryProcessor:
         try:
             logger.info(f"Processing query {query_id}: {request.query}")
 
-            # Step 1: Analyze query and determine what data is needed
+            # Step 1: Check if query intent suits our app
+            if not llm_service.check_query_intent(request.query):
+                intent_response = QueryResponse(
+                    answer="I apologize, but this query doesn't seem to suit my capabilities. I can help you with team information, Jira tickets, deployments, and internal documentation. Please try asking something related to Harri's development team.",
+                    sources=[],
+                    confidence=0.9,
+                    query_type="intent_mismatch"
+                )
+                
+                processing_time = time.time() - start_time
+                self._log_interaction(
+                    query_id=query_id,
+                    query=request.query,
+                    response=intent_response,
+                    processing_time=processing_time,
+                    user_id=request.user_id
+                )
+                return intent_response
+
+            # Step 2: Analyze query and determine what data is needed
             query_analysis = self._analyze_query(request.query)
 
-            # Step 2: Retrieve relevant knowledge base content
+            # Step 3: Retrieve relevant knowledge base content
             kb_context = self._get_knowledge_base_context(request.query)
 
-            # Step 3: Retrieve relevant dynamic data
+            # Step 4: Retrieve relevant dynamic data
             dynamic_data = self._get_dynamic_data(query_analysis)
 
-            # Step 4: Generate response using LLM
+            # Step 5: Generate response using LLM
             response = llm_service.process_query(
                 query=request.query,
                 context=kb_context,
                 dynamic_data=dynamic_data
             )
 
-            # Step 5: Log the interaction
+            # Step 6: Log the interaction
             processing_time = time.time() - start_time
             self._log_interaction(
                 query_id=query_id,
