@@ -40,14 +40,19 @@ with st.form("auth_form"):
 # Show query UI if logged in
 if st.session_state.auth_token:
     st.title(f"💬 Welcome, {st.session_state.username}")
-    st.write("Ask something below:")
-
-    with st.form("query_form"):
-        user_query = st.text_input("Enter your query:")
-        submitted = st.form_submit_button("Submit")
+    
+    # Add tabs for different sections
+    tab1, tab2 = st.tabs(["💬 Ask Questions", "📊 Chat History"])
+    
+    with tab1:
+        st.write("Ask something below:")
+        
+        with st.form("query_form"):
+            user_query = st.text_input("Enter your query:")
+            submitted = st.form_submit_button("Submit")
 
     if submitted and user_query.strip():
-        payload = {"query": user_query}
+        payload = {"query": user_query, "user_id": st.session_state.username}
         try:
             response = requests.post(f"{API_BASE}/query", json=payload)
             if response.status_code == 200:
@@ -94,3 +99,34 @@ if st.session_state.auth_token:
                 st.error(f"Error {response.status_code}: {response.text}")
         except Exception as e:
             st.error(f"API Error: {e}")
+    
+    with tab2:
+        st.write("### My Chat History")
+        
+        # Show current user's chat history only
+        try:
+            # Get current user's chat history
+            logs_response = requests.get(f"{API_BASE}/logs?limit=100&user_id={st.session_state.username}")
+            
+            if logs_response.status_code == 200:
+                logs = logs_response.json()
+                
+                if logs:
+                    st.write(f"### Your Recent Interactions ({len(logs)} total)")
+                    
+                    for i, log in enumerate(logs):
+                        with st.expander(f"Query {i+1}: {log['query'][:50]}... ({log['timestamp']})"):
+                            st.write(f"**Query:** {log['query']}")
+                            st.write(f"**Response:** {log['response']}")
+                            st.write(f"**Type:** {log['query_type']}")
+                            st.write(f"**Processing Time:** {log['processing_time']:.2f}s")
+                            if log['sources']:
+                                st.write(f"**Sources:** {', '.join(log['sources'])}")
+                            if log['feedback']:
+                                st.write(f"**Feedback:** {log['feedback']}")
+                else:
+                    st.info("You haven't made any queries yet. Start asking questions to see your chat history here!")
+            else:
+                st.error("Failed to retrieve your chat history")
+        except Exception as e:
+            st.error(f"Error loading chat history: {e}")

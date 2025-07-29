@@ -241,11 +241,16 @@ class QueryProcessor:
             logger.error(f"Error adding feedback: {e}")
             return False
 
-    def get_logs(self, limit: int = 100) -> List[LogEntry]:
-        """Get recent interaction logs from database."""
+    def get_logs(self, limit: int = 100, user_id: str = None) -> List[LogEntry]:
+        """Get recent interaction logs from database, optionally filtered by user_id."""
         try:
             db = SessionLocal()
-            log_entries = db.query(LogEntryTable).order_by(
+            query = db.query(LogEntryTable)
+            
+            if user_id:
+                query = query.filter(LogEntryTable.user_id == user_id)
+            
+            log_entries = query.order_by(
                 LogEntryTable.timestamp.desc()
             ).limit(limit).all()
             
