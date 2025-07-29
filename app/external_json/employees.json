@@ -1,0 +1,75 @@
+[
+    {
+      "id": 101,
+      "name": "Ahmed Ali",
+      "email": "ahmed@harri.com",
+      "role": "Backend Lead",
+      "team": "Backend",
+      "jira_username": "ahmed_ali"
+    },
+    {
+      "id": 102,
+      "name": "Fatima Khalil",
+      "email": "fatima@harri.com",
+      "role": "Senior Backend Engineer",
+      "team": "Backend",
+      "jira_username": "fatima_k"
+    },
+    {
+      "id": 103,
+      "name": "Sarah Odeh",
+      "email": "sarah@harri.com",
+      "role": "Backend Engineer",
+      "team": "Backend",
+      "jira_username": "sarah_odeh"
+    },
+    {
+      "id": 201,
+      "name": "Adam Smith",
+      "email": "adam@harri.com",
+      "role": "DevOps Lead",
+      "team": "DevOps",
+      "jira_username": "adam_s"
+    },
+    {
+      "id": 202,
+      "name": "Lina Salem",
+      "email": "lina@harri.com",
+      "role": "DevOps Engineer",
+      "team": "DevOps",
+      "jira_username": "lina_s"
+    },
+    {
+      "id": 301,
+      "name": "Leen Qasem",
+      "email": "leen@harri.com",
+      "role": "Frontend Lead",
+      "team": "Frontend",
+      "jira_username": "leen_q"
+    },
+    {
+      "id": 302,
+      "name": "Omar Shalabi",
+      "email": "omar@harri.com",
+      "role": "Frontend Engineer",
+      "team": "Frontend",
+      "jira_username": "omar_s"
+    },
+    {
+      "id": 401,
+      "name": "Noor Jaber",
+      "email": "noor@harri.com",
+      "role": "Director of Engineering",
+      "team": "Management",
+      "jira_username": "noor_j"
+    },
+    {
+      "id": 402,
+      "name": "Hossam Doleh",
+      "email": "hossam@harri.com",
+      "role": "CTO",
+      "team": "Management",
+      "jira_username": "hossam_d"
+    }
+  ]
+  

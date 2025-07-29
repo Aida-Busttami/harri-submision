@@ -1,0 +1,52 @@
+[
+    {
+      "id": "HARRI-123",
+      "summary": "Fix login bug in onboarding flow",
+      "assignee": "ahmed_ali",
+      "status": "Open",
+      "priority": "High"
+    },
+    {
+      "id": "HARRI-124",
+      "summary": "Update CI/CD pipeline for deployment automation",
+      "assignee": "adam_s",
+      "status": "In Progress",
+      "priority": "Medium"
+    },
+    {
+      "id": "HARRI-125",
+      "summary": "Refactor code review checklist for backend services",
+      "assignee": "fatima_k",
+      "status": "Open",
+      "priority": "Low"
+    },
+    {
+      "id": "HARRI-126",
+      "summary": "Resolve Docker networking issue in staging",
+      "assignee": "lina_s",
+      "status": "Open",
+      "priority": "High"
+    },
+    {
+      "id": "HARRI-127",
+      "summary": "Implement dark mode in frontend dashboard",
+      "assignee": "leen_q",
+      "status": "Open",
+      "priority": "Medium"
+    },
+    {
+      "id": "HARRI-128",
+      "summary": "Investigate failed deployment for payments service",
+      "assignee": "adam_s",
+      "status": "Open",
+      "priority": "Critical"
+    },
+    {
+      "id": "HARRI-129",
+      "summary": "Upgrade node dependencies in frontend project",
+      "assignee": "omar_s",
+      "status": "In Progress",
+      "priority": "Low"
+    }
+  ]
+  
