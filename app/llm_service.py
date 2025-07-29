@@ -154,12 +154,15 @@ class LLMService:
             You are an intent classifier for Harri's AI Assistant.
             
             Harri's AI Assistant can help with:
-            - Team information and employee details
+            - Team information and employee details (names, roles, contact info, who is on call, etc.)
             - Jira tickets and project issues  
             - Deployment information
             - Internal documentation and policies
             - Development environment setup
             - Code review processes
+            
+            IMPORTANT: Be very permissive. If the query is related to ANY of the above topics, even tangentially, respond with YES.
+            Only respond with NO if the query is completely unrelated (like asking about weather, sports, or personal matters).
             
             Query: "{query}"
             
@@ -177,7 +180,19 @@ class LLMService:
             )
             
             result = response.choices[0].message.content.strip().lower()
-            return "yes" in result
+            llm_result = "yes" in result
+            
+            # Fallback: Always allow employee-related queries
+            employee_keywords = ["employee", "employees", "team", "staff", "names", "who", "contact", "on call"]
+            query_lower = query.lower()
+            has_employee_keywords = any(keyword in query_lower for keyword in employee_keywords)
+            
+            # If LLM says no but query has employee keywords, allow it anyway
+            if not llm_result and has_employee_keywords:
+                logger.info(f"LLM rejected query '{query}' but allowing due to employee keywords")
+                return True
+                
+            return llm_result
             
         except Exception as e:
             logger.error(f"Error checking intent with LLM: {e}")
