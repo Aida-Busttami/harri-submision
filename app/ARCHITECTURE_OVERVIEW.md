@@ -97,27 +97,27 @@ LogEntryTable(id, response_id, query, response, sources,
 
 ### **Query Processor** (`query_processor.py`)
 - **Role**: Main orchestrator
-- **Responsibilities**: data retrieval, response generation, logging
+- **Responsibilities**: Coordinates all services, gets data, creates responses, saves logs
 - **Key Method**: `process_query()`
 
 ### **LLM Service** (`llm_service.py`)
 - **Role**: AI response generation
-- **Responsibilities**: Intent checking, prompt building, response generation
+- **Responsibilities**: Understands user questions, builds prompts, generates answers
 - **Key Methods**: `process_query()`, `check_query_intent()`, `classify_data_intent()`
 
 ### **Knowledge Base** (`knowledge_base.py`)
 - **Role**: Document search
-- **Responsibilities**: Document loading, vector indexing, semantic search
+- **Responsibilities**: Loads documents, creates search indexes, finds relevant content
 - **Key Method**: `search()`
 
 ### **Data Service** (`data_service.py`)
 - **Role**: Database operations
-- **Responsibilities**: CRUD operations, data initialization, sample data loading
+- **Responsibilities**: Reads and writes data, loads sample data, manages database
 - **Key Methods**: `get_employees()`, `get_tickets()`, `get_deployments()`
 
 ### **Auth Service** (`auth_service.py`)
 - **Role**: User management
-- **Responsibilities**: Registration, login, password hashing, session management
+- **Responsibilities**: Handles user signup, login, password security, user sessions
 - **Key Methods**: `register_user()`, `login_user()`
 
 ## Data Flow
