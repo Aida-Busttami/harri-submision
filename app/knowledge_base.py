@@ -88,19 +88,84 @@ class KnowledgeBase:
             logger.error(f"Error loading document {file_path}: {e}")
 
     def _split_document(self, content: str, filename: str) -> List[str]:
-        """Split document content into meaningful chunks."""
-        # Split document content into meaningful chunks based on # headings
+        """
+        Split document content into meaningful chunks for vector storage.
+        
+        This method intelligently splits markdown documents into chunks that preserve
+        semantic meaning while being suitable for embedding and retrieval.
+        Each chunk includes its immediate parent header for better context.
+        
+        Args:
+            content: The full document content as a string
+            filename: The name of the file being processed (for context)
+            
+        Returns:
+            List of text chunks, each containing meaningful content units with parent header context
+        """
+        # Strategy 1: Split by markdown headings (## and ###) and include parent headers
+        # This preserves document structure and keeps related content together
+        # We need to find the parent header for each subsection
+        
+        # Step 1: Parse all headings to understand document hierarchy
+        # This creates a map of heading positions and their levels for parent-child relationship analysis
+        heading_pattern = r'^(#{1,3})\s+(.+)$'  # Matches #, ##, and ### headings
+        headings = []
+        lines = content.split('\n')
+        
+        for i, line in enumerate(lines):
+            match = re.match(heading_pattern, line)
+            if match:
+                level = len(match.group(1))  # Count # symbols to determine heading level
+                title = match.group(2).strip()  # Extract the heading text
+                headings.append((i, level, title))  # Store: (line_number, level, title)
+        
+        # Step 2: Split content by subsection headings (## and ###)
+        # This creates the individual chunks we'll process
         sections = re.split(r'^#{2,3}\s+', content, flags=re.MULTILINE)
+        
         chunks = []
+        section_index = 0  # Track which section we're processing
+        
         for section in sections:
-            if section.strip():
-                # Remove multiple consecutive newlines
+            if section.strip():  # Skip empty sections
+                # Clean up excessive whitespace: replace 3+ consecutive newlines with 2
+                # This maintains readability while reducing noise in embeddings
                 section = re.sub(r'\n\s*\n\s*\n', '\n\n', section.strip())
-                chunks.append(section)
+                
+                # Step 3: Find the appropriate parent header for this section
+                # We need to identify which # heading (level 1) is the parent of this subsection
+                parent_header = ""
+                if section_index < len(headings):
+                    # Iterate through all headings to find the correct parent
+                    for i, (line_num, level, title) in enumerate(headings):
+                        if level == 1:  # This is a # heading (potential parent)
+                            # Check if this parent comes before our current section
+                            # We need to ensure this parent is the most recent one before our section
+                            if i < len(headings) - 1:
+                                next_heading_line = headings[i + 1][0]
+                                # If our section starts after this parent, use it as the parent
+                                if section_index == 0 or line_num < next_heading_line:
+                                    parent_header = title
+                                    break
+                
+                # Step 4: Add parent header context to each chunk for better retrieval
+                # This helps the AI understand the broader context when retrieving chunks
+                if parent_header:
+                    # Format: "Parent Header\n\nSubsection Content"
+                    chunk_with_context = f"{parent_header}\n\n{section}"
+                else:
+                    # Fallback: use section as-is if no parent found
+                    chunk_with_context = section
+                
+                chunks.append(chunk_with_context)
+                section_index += 1
 
-        # If no sections found, split by paragraphs
+        # Strategy 2: Fallback to paragraph-based splitting
+        # If no markdown headings found, split by paragraph breaks
         if not chunks:
+            # Split on double newlines (paragraph boundaries)
             paragraphs = re.split(r'\n\s*\n', content)
+            # Filter out empty paragraphs and strip whitespace
             chunks = [p.strip() for p in paragraphs if p.strip()]
 
         return chunks
