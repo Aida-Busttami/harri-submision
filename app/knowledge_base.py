@@ -10,7 +10,7 @@ from pathlib import Path
 import chromadb
 from loguru import logger
 from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
+# from sentence_transformers import SentenceTransformer
 
 # Get the directory of the current Python file
 current_file_dir = os.path.dirname(os.path.abspath(__file__))
@@ -43,7 +43,8 @@ class KnowledgeBase:
                 path="./chroma_db",
                 settings=Settings()
             )
-            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            # self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            self.embedding_model = None  # Use ChromaDB's default embeddings
             self.collection = self.chroma_client.get_or_create_collection(
                 name="harri_knowledge_base",
                 metadata={"description": "Harri internal documentation and knowledge base"}

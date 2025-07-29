@@ -262,12 +262,12 @@ class LLMService:
     ) -> List[str]:
         """Extract source information from context and dynamic data."""
         sources = []
-        
+
         if context:
             # Extract source filenames from context
             source_matches = re.findall(r"\[Source: ([^\]]+)\]", context)
             sources.extend(source_matches)
-        
+
         if dynamic_data:
             if "employees" in dynamic_data:
                 sources.append("employees.json")
@@ -275,7 +275,7 @@ class LLMService:
                 sources.append("jira_tickets.json")
             if "deployments" in dynamic_data:
                 sources.append("deployments.json")
-        
+
         return list(set(sources))  # Remove duplicates
 
 
