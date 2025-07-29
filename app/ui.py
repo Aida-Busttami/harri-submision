@@ -51,8 +51,45 @@ if st.session_state.auth_token:
         try:
             response = requests.post(f"{API_BASE}/query", json=payload)
             if response.status_code == 200:
-                result = response.json().get("answer", "No response returned.")
+                response_data = response.json()
+                result = response_data.get("answer", "No response returned.")
+                response_id = response_data.get("response_id", "")
+                
                 st.text_area("Assistant Response", value=result, height=200)
+                
+                # Feedback section
+                if response_id:
+                    st.write("---")
+                    st.write("**Was this response helpful?**")
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        if st.button("👍 Helpful", key=f"helpful_{response_id}"):
+                            feedback_data = {
+                                "response_id": response_id,
+                                "helpful": True,
+                                "feedback_text": ""
+                            }
+                            feedback_response = requests.post(f"{API_BASE}/feedback", json=feedback_data)
+                            if feedback_response.status_code == 200:
+                                st.success("Thank you for your feedback!")
+                            else:
+                                st.error("Failed to submit feedback")
+                    
+                    with col2:
+                        if st.button("👎 Not Helpful", key=f"not_helpful_{response_id}"):
+                            feedback_text = st.text_input("Please tell us why:", key=f"feedback_text_{response_id}")
+                            if st.button("Submit Feedback", key=f"submit_feedback_{response_id}"):
+                                feedback_data = {
+                                    "response_id": response_id,
+                                    "helpful": False,
+                                    "feedback_text": feedback_text
+                                }
+                                feedback_response = requests.post(f"{API_BASE}/feedback", json=feedback_data)
+                                if feedback_response.status_code == 200:
+                                    st.success("Thank you for your feedback!")
+                                else:
+                                    st.error("Failed to submit feedback")
             else:
                 st.error(f"Error {response.status_code}: {response.text}")
         except Exception as e:

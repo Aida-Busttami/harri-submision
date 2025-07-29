@@ -44,7 +44,8 @@ class QueryProcessor:
                     answer="I apologize, but this query doesn't seem to suit my capabilities. I can help you with team information, Jira tickets, deployments, and internal documentation. Please try asking something related to Harri's development team.",
                     sources=[],
                     confidence=0.9,
-                    query_type="intent_mismatch"
+                    query_type="intent_mismatch",
+                    response_id=query_id
                 )
                 
                 processing_time = time.time() - start_time
@@ -72,6 +73,8 @@ class QueryProcessor:
                 context=kb_context,
                 dynamic_data=dynamic_data
             )
+            # Add response_id to the response
+            response.response_id = query_id
 
             # Step 6: Log the interaction
             processing_time = time.time() - start_time
@@ -91,7 +94,8 @@ class QueryProcessor:
                 answer="I apologize, but I encountered an error processing your query. Please try again or contact support.",
                 sources=[],
                 confidence=0.0,
-                query_type="error"
+                query_type="error",
+                response_id=query_id
             )
 
             processing_time = time.time() - start_time
@@ -196,6 +200,7 @@ class QueryProcessor:
         try:
             db = SessionLocal()
             log_entry = LogEntryTable(
+                response_id=response.response_id,
                 timestamp=datetime.now(),
                 query=query,
                 response=response.answer,
@@ -210,13 +215,13 @@ class QueryProcessor:
         except Exception as e:
             logger.error(f"Error logging interaction to database: {e}")
 
-    def add_feedback(self, query_id: str, helpful: bool, feedback_text: str = "") -> bool:
-        """Add feedback for a query by updating existing entry."""
+    def add_feedback(self, response_id: str, helpful: bool, feedback_text: str = "") -> bool:
+        """Add feedback for a response by updating existing entry."""
         try:
             db = SessionLocal()
-            # Find the log entry by query content (since we don't store query_id)
+            # Find the log entry by response_id
             log_entry = db.query(LogEntryTable).filter(
-                LogEntryTable.query.like(f"%{query_id}%")
+                LogEntryTable.response_id == response_id
             ).first()
             
             if log_entry:
@@ -256,6 +261,7 @@ class QueryProcessor:
                         feedback = {"text": entry.feedback}
                 
                 log_entry = LogEntry(
+                    response_id=entry.response_id,
                     timestamp=entry.timestamp,
                     query=entry.query,
                     response=entry.response,

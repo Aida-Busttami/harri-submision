@@ -40,6 +40,7 @@ class JiraTicketTable(Base):
 class LogEntryTable(Base):
     __tablename__ = "logs"
     id = Column(Integer, primary_key=True, autoincrement=True)
+    response_id = Column(String, unique=True, nullable=False)
     timestamp = Column(DateTime, default=datetime.utcnow)
     query = Column(Text, nullable=False)
     response = Column(Text, nullable=False)
@@ -82,8 +83,10 @@ class QueryResponse(BaseModel):
     sources: List[str] = Field(default_factory=list)
     confidence: float = Field(..., ge=0.0, le=1.0)
     query_type: str = Field(...)
+    response_id: Optional[str] = Field(None, description="Unique identifier for this response")
 
 class LogEntry(BaseModel):
+    response_id: str
     timestamp: datetime
     query: str
     response: str
